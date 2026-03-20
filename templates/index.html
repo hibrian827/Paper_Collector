@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Collector — Security Conference Papers</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="backdrop-glow"></div>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect x="2" y="4" width="20" height="26" rx="2" stroke="currentColor" stroke-width="2"/>
+          <rect x="10" y="2" width="20" height="26" rx="2" fill="var(--bg)" stroke="currentColor" stroke-width="2"/>
+          <line x1="14" y1="9" x2="26" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="14" y1="14" x2="26" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="14" y1="19" x2="22" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h1>Paper Collector</h1>
+      </div>
+      <div class="header-stats">
+        <span class="stat-badge" id="total-badge">{{ total }} papers</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="search-section">
+      <div class="search-box">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="8.5" cy="8.5" r="6" stroke="currentColor" stroke-width="2"/>
+          <line x1="13" y1="13" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search papers by keyword..."
+               autocomplete="off" spellcheck="false">
+        <div class="search-scope">
+          <button class="scope-btn active" data-scope="both">All</button>
+          <button class="scope-btn" data-scope="title">Title</button>
+          <button class="scope-btn" data-scope="abstract">Abstract</button>
+        </div>
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label>Conference</label>
+          <div class="conf-tags">
+            {% for conf in conferences %}
+            <button class="conf-tag" data-conf="{{ conf }}">{{ conf }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="filter-group">
+          <label>Year</label>
+          <div class="year-tags">
+            {% for y in years %}
+            <button class="year-tag" data-year="{{ y }}">{{ y }}</button>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="results-section">
+      <div class="results-header">
+        <span id="results-count"></span>
+        <div class="results-pagination" id="pagination-top"></div>
+      </div>
+      <div id="results" class="results-grid"></div>
+      <div class="results-footer">
+        <div class="results-pagination" id="pagination-bottom"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Paper Collector &mdash; Searching NDSS, USENIX Security, IEEE S&amp;P, and CCS papers</p>
+  </footer>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
