@@ -238,10 +238,89 @@ def collect_conference(conn, conf_name, conf_key, slug, years):
     time.sleep(3)
 
 
+############## fetch_abstract_openalex ###############
+def fetch_abstract_openalex(doi, title, session):
+  """Try OpenAlex API — free, no key needed, good coverage."""
+  if doi:
+    url = f"https://api.openalex.org/works/doi:{doi}"
+    try:
+      r = session.get(
+        url,
+        params={"select": "abstract_inverted_index"},
+        headers={"User-Agent": "PaperCollector/1.0 (mailto:paper@collector.dev)"},
+        timeout=15,
+      )
+      if r.status_code == 200:
+        inv_idx = r.json().get("abstract_inverted_index")
+        if inv_idx:
+          pos_word = []
+          for word, positions in inv_idx.items():
+            for pos in positions:
+              pos_word.append((pos, word))
+          pos_word.sort()
+          return " ".join(w for _, w in pos_word)
+    except Exception:
+      pass
+
+  # Fallback: search by title
+  clean_title = re.sub(r"[^\w\s]", "", title)
+  url = "https://api.openalex.org/works"
+  try:
+    r = session.get(
+      url,
+      params={
+        "search": clean_title[:200],
+        "select": "title,abstract_inverted_index",
+        "per_page": "3",
+      },
+      headers={"User-Agent": "PaperCollector/1.0 (mailto:paper@collector.dev)"},
+      timeout=15,
+    )
+    if r.status_code == 200:
+      for work in r.json().get("results", []):
+        inv_idx = work.get("abstract_inverted_index")
+        if inv_idx:
+          wt = (work.get("title") or "").lower().strip().rstrip(".")
+          if wt == title.lower().strip().rstrip("."):
+            pos_word = []
+            for word, positions in inv_idx.items():
+              for pos in positions:
+                pos_word.append((pos, word))
+            pos_word.sort()
+            return " ".join(w for _, w in pos_word)
+  except Exception:
+    pass
+
+  return ""
+
+
+############## fetch_abstract_crossref ###############
+def fetch_abstract_crossref(doi, session):
+  """Try CrossRef API — only works with DOI, returns XML abstract."""
+  if not doi:
+    return ""
+  url = f"https://api.crossref.org/works/{doi}"
+  try:
+    r = session.get(
+      url,
+      headers={"User-Agent": "PaperCollector/1.0 (mailto:paper@collector.dev)"},
+      timeout=15,
+    )
+    if r.status_code == 200:
+      abstract = r.json().get("message", {}).get("abstract", "")
+      if abstract:
+        abstract = re.sub(r"<[^>]+>", "", abstract).strip()
+        return abstract
+  except Exception:
+    pass
+  return ""
+
+
 ########### fetch_missing_abstracts ##################
-def fetch_missing_abstracts(conn, batch_size=100):
+def fetch_missing_abstracts(conn, batch_size=500):
   print(f"\n{'='*54}")
-  print("  Fetching missing abstracts (Semantic Scholar)")
+  print("  Fetching missing abstracts")
+  print(f"  Sources: OpenAlex -> CrossRef -> Semantic Scholar")
   print(f"{'='*54}")
 
   c = conn.cursor()
@@ -260,24 +339,50 @@ def fetch_missing_abstracts(conn, batch_size=100):
   print(f"  {len(rows)} papers missing abstracts")
   session = requests.Session()
   fetched = 0
+  sources = {"openalex": 0, "crossref": 0, "semantic": 0}
+
   for i, (paper_id, doi, title) in enumerate(rows):
-    abstract = fetch_abstract_semantic(doi, title, session)
+    abstract = ""
+
+    # Try OpenAlex first (fast, free, good coverage)
+    abstract = fetch_abstract_openalex(doi, title, session)
+    if abstract:
+      sources["openalex"] += 1
+    else:
+      # Try CrossRef (DOI only)
+      abstract = fetch_abstract_crossref(doi, session)
+      if abstract:
+        sources["crossref"] += 1
+      else:
+        # Fall back to Semantic Scholar
+        abstract = fetch_abstract_semantic(doi, title, session)
+        if abstract:
+          sources["semantic"] += 1
+        time.sleep(0.5)
+
     if abstract:
       c.execute(
         "UPDATE papers SET abstract = ? WHERE id = ?",
         (abstract, paper_id),
       )
       fetched += 1
-    if (i + 1) % 10 == 0:
+
+    if (i + 1) % 20 == 0:
       conn.commit()
       print(
         f"    Progress: {i + 1}/{len(rows)} "
-        f"({fetched} abstracts found)"
+        f"({fetched} abstracts) "
+        f"[OA:{sources['openalex']} CR:{sources['crossref']} SS:{sources['semantic']}]"
       )
-    time.sleep(0.5)
+    time.sleep(0.1)
 
   conn.commit()
   print(f"  Fetched {fetched}/{len(rows)} abstracts")
+  print(
+    f"  Sources — OpenAlex: {sources['openalex']}, "
+    f"CrossRef: {sources['crossref']}, "
+    f"Semantic Scholar: {sources['semantic']}"
+  )
   return len(rows) - fetched
 
 
