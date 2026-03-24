@@ -160,7 +160,7 @@ function paperCard(paper, index) {
         <span class="conf-label ${confClass}">${escapeHtml(paper.conference)}</span>
         <span class="year-label">${paper.year}</span>
       </div>
-      <h3 class="paper-title">${title}</h3>
+      <h3 class="paper-title"><a href="https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}" target="_blank" rel="noopener">${title}</a></h3>
       <p class="paper-authors">${authors}</p>
       ${paper.abstract
         ? `<button class="toggle-abstract">Show abstract</button>
